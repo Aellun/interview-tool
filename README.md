@@ -203,18 +203,11 @@ Uses ReportLab library to create professional PDF documents with:
 ```
 AI_enginering/
 ├── app.py                          # Main application
-├── app2.py                         # Legacy simple version
-├── app3.py                         # Legacy version with setup stage
-├── app_multi_round.py              # Previous multi-round version
-├── session_st_solution.py          # Session state example
+
 ├── requirements.txt                # Python dependencies
 ├── .streamlit/
 │   └── secrets.toml               # OpenAI API key (gitignored)
 ├── README.md                       # This file
-├── WARP.md                         # Development documentation
-├── CHANGELOG_APP_UPDATE.md         # Update history
-├── QUICK_START.md                  # User guide
-└── MULTI_ROUND_README.md          # Multi-round system docs
 ```
 
 ## Dependencies
@@ -338,8 +331,6 @@ For issues, questions, or contributions:
 1. Review this README and supporting documentation
 2. Check the troubleshooting section
 3. Verify your OpenAI API key and configuration
-4. Consult `WARP.md` for technical architecture details
-5. Review `CHANGELOG_APP_UPDATE.md` for recent changes
 
 ## License
 
@@ -348,5 +339,5 @@ This project is provided as-is for educational and commercial use. Ensure compli
 ## Version
 
 Current Version: 2.0  
-Last Updated: January 2025  
+Last Updated: October 2025  
 Compatibility: Python 3.8+, Streamlit 1.50.0+
