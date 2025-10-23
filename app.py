@@ -1,6 +1,13 @@
 import streamlit as st
 from openai import OpenAI
 from streamlit_js_eval import streamlit_js_eval
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from io import BytesIO
+from datetime import datetime
 
 # Setting up the Streamlit page configuration
 st.set_page_config(page_title="AI Interview System", page_icon="📋")
@@ -89,6 +96,10 @@ if "current_round" not in st.session_state:
     st.session_state.current_round = 0
 if "round_message_count" not in st.session_state:
     st.session_state.round_message_count = 0
+if "round_question_count" not in st.session_state:
+    st.session_state.round_question_count = 0
+if "intro_message_sent" not in st.session_state:
+    st.session_state.intro_message_sent = False
 if "round_messages" not in st.session_state:
     st.session_state.round_messages = []
 if "all_rounds_history" not in st.session_state:
@@ -124,6 +135,8 @@ def initialize_round():
     
     st.session_state.round_messages = [{"role": "system", "content": system_prompt}]
     st.session_state.round_message_count = 0
+    st.session_state.round_question_count = 0
+    st.session_state.intro_message_sent = False
 
 def generate_round_feedback():
     """Generate feedback for the current round."""
@@ -220,6 +233,154 @@ def export_interview_transcript():
     
     return "\n".join(transcript_parts)
 
+def generate_transcript_pdf():
+    """Generate PDF of interview transcript."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.75*inch, bottomMargin=0.75*inch)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor='#1f4788',
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor='#1f4788',
+        spaceAfter=12,
+        spaceBefore=12
+    )
+    
+    info_style = ParagraphStyle(
+        'InfoStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    )
+    
+    dialogue_style = ParagraphStyle(
+        'DialogueStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        leftIndent=20,
+        spaceAfter=10
+    )
+    
+    # Title
+    story.append(Paragraph("INTERVIEW TRANSCRIPT", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Candidate Information
+    story.append(Paragraph("<b>Candidate Information</b>", heading_style))
+    story.append(Paragraph(f"<b>Name:</b> {st.session_state['name']}", info_style))
+    story.append(Paragraph(f"<b>Position:</b> {st.session_state['level']} {st.session_state['position']}", info_style))
+    story.append(Paragraph(f"<b>Company:</b> {st.session_state['company']}", info_style))
+    story.append(Paragraph(f"<b>Experience:</b> {st.session_state['experience']}", info_style))
+    story.append(Paragraph(f"<b>Skills:</b> {st.session_state['skills']}", info_style))
+    story.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%B %d, %Y')}", info_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Round transcripts
+    for round_history in st.session_state.all_rounds_history:
+        story.append(Paragraph(f"<b>{round_history['round'].upper()} ROUND</b>", heading_style))
+        story.append(Spacer(1, 0.1*inch))
+        
+        for msg in round_history['messages']:
+            if msg['role'] != 'system':
+                role_label = "Interviewer" if msg['role'] == 'assistant' else "Candidate"
+                content = msg['content'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                story.append(Paragraph(f"<b>{role_label}:</b> {content}", dialogue_style))
+        
+        story.append(Spacer(1, 0.2*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+def generate_feedback_pdf():
+    """Generate PDF of feedback report."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.75*inch, bottomMargin=0.75*inch)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor='#1f4788',
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor='#1f4788',
+        spaceAfter=12,
+        spaceBefore=12
+    )
+    
+    info_style = ParagraphStyle(
+        'InfoStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    )
+    
+    feedback_style = ParagraphStyle(
+        'FeedbackStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=10
+    )
+    
+    # Title
+    story.append(Paragraph("INTERVIEW FEEDBACK REPORT", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Candidate Information
+    story.append(Paragraph("<b>Candidate Information</b>", heading_style))
+    story.append(Paragraph(f"<b>Name:</b> {st.session_state['name']}", info_style))
+    story.append(Paragraph(f"<b>Position:</b> {st.session_state['level']} {st.session_state['position']}", info_style))
+    story.append(Paragraph(f"<b>Company:</b> {st.session_state['company']}", info_style))
+    story.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%B %d, %Y')}", info_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Final Evaluation
+    story.append(Paragraph("<b>FINAL EVALUATION</b>", heading_style))
+    final_feedback = st.session_state.final_feedback.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    for line in final_feedback.split('\n'):
+        if line.strip():
+            story.append(Paragraph(line, feedback_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Round-by-Round Feedback
+    story.append(Paragraph("<b>ROUND-BY-ROUND FEEDBACK</b>", heading_style))
+    story.append(Spacer(1, 0.1*inch))
+    
+    for feedback_item in st.session_state.round_feedback:
+        story.append(Paragraph(f"<b>{feedback_item['round'].upper()} ROUND</b>", heading_style))
+        feedback_content = feedback_item['feedback'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        for line in feedback_content.split('\n'):
+            if line.strip():
+                story.append(Paragraph(line, feedback_style))
+        story.append(Spacer(1, 0.2*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 # Setup stage for collecting user details
 if not st.session_state.setup_complete:
     # Welcome message with instructions
@@ -295,6 +456,30 @@ if not st.session_state.setup_complete:
 
 # Interview phase
 if st.session_state.setup_complete and not st.session_state.chat_complete:
+    # Sidebar with active section display
+    with st.sidebar:
+        st.markdown("### Interview Progress")
+        st.markdown("---")
+        
+        current_round_idx = st.session_state.current_round
+        current_round_name = st.session_state.rounds[current_round_idx]
+        total_rounds = len(st.session_state.rounds)
+        
+        # Display all rounds with active indicator
+        for idx, round_name in enumerate(st.session_state.rounds):
+            if idx < current_round_idx:
+                st.markdown(f"✓ **{round_name}** - Completed")
+            elif idx == current_round_idx:
+                st.markdown(f"→ **{round_name}** - Active")
+            else:
+                st.markdown(f"○ **{round_name}** - Pending")
+        
+        st.markdown("---")
+        st.markdown("### Candidate Information")
+        st.markdown(f"**Name:** {st.session_state['name']}")
+        st.markdown(f"**Position:** {st.session_state['level']} {st.session_state['position']}")
+        st.markdown(f"**Company:** {st.session_state['company']}")
+    
     # Progress indicator at the top
     current_round_idx = st.session_state.current_round
     current_round_name = st.session_state.rounds[current_round_idx]
@@ -304,7 +489,12 @@ if st.session_state.setup_complete and not st.session_state.chat_complete:
     progress = (current_round_idx + 1) / total_rounds
     st.progress(progress, text=f"Round {current_round_idx + 1} of {total_rounds}: {current_round_name}")
     
-    st.subheader(f"{current_round_name} Round")
+    # Question counter ring in top left
+    col_counter, col_header = st.columns([1, 5])
+    with col_counter:
+        st.markdown(f"<div style='text-align: center; padding: 10px; border: 3px solid #1f4788; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: #1f4788;'>{st.session_state.round_question_count}/{MAX_MESSAGES_PER_ROUND}</div>", unsafe_allow_html=True)
+    with col_header:
+        st.subheader(f"{current_round_name} Round")
     
     # Initialize OpenAI client and model
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -326,8 +516,8 @@ if st.session_state.setup_complete and not st.session_state.chat_complete:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
     
-    # Check if round is complete
-    if st.session_state.round_message_count >= MAX_MESSAGES_PER_ROUND:
+    # Check if round is complete (based on question count, not total messages)
+    if st.session_state.round_question_count >= MAX_MESSAGES_PER_ROUND:
         st.success(f"{current_round_name} round complete")
         st.info("Generating feedback for this round...")
         
@@ -374,6 +564,13 @@ if st.session_state.setup_complete and not st.session_state.chat_complete:
                 response = st.write_stream(stream)
             
             st.session_state.round_messages.append({"role": "assistant", "content": response})
+            
+            # After bot responds, increment question count (intro message doesn't count)
+            if st.session_state.intro_message_sent:
+                st.session_state.round_question_count += 1
+            else:
+                st.session_state.intro_message_sent = True
+            
             st.rerun()
 
 # Final feedback section
@@ -404,43 +601,23 @@ if st.session_state.chat_complete:
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Download interview transcript
-        transcript = export_interview_transcript()
+        # Download interview transcript as PDF
+        transcript_pdf = generate_transcript_pdf()
         st.download_button(
-            label="Download Interview Transcript",
-            data=transcript,
-            file_name=f"interview_transcript_{st.session_state['name'].replace(' ', '_')}.txt",
-            mime="text/plain"
+            label="Download Interview Transcript (PDF)",
+            data=transcript_pdf,
+            file_name=f"interview_transcript_{st.session_state['name'].replace(' ', '_')}.pdf",
+            mime="application/pdf"
         )
     
     with col2:
-        # Download feedback report
-        feedback_report = f"""INTERVIEW FEEDBACK REPORT
-{'=' * 60}
-
-Candidate: {st.session_state['name']}
-Position: {st.session_state['level']} {st.session_state['position']}
-Company: {st.session_state['company']}
-
-{'=' * 60}
-FINAL EVALUATION
-{'=' * 60}
-
-{st.session_state.final_feedback}
-
-{'=' * 60}
-ROUND-BY-ROUND FEEDBACK
-{'=' * 60}
-
-"""
-        for feedback_item in st.session_state.round_feedback:
-            feedback_report += f"\n{feedback_item['round'].upper()} ROUND\n{'-' * 60}\n{feedback_item['feedback']}\n\n"
-        
+        # Download feedback report as PDF
+        feedback_pdf = generate_feedback_pdf()
         st.download_button(
-            label="Download Feedback Report",
-            data=feedback_report,
-            file_name=f"feedback_report_{st.session_state['name'].replace(' ', '_')}.txt",
-            mime="text/plain"
+            label="Download Feedback Report (PDF)",
+            data=feedback_pdf,
+            file_name=f"feedback_report_{st.session_state['name'].replace(' ', '_')}.pdf",
+            mime="application/pdf"
         )
     
     with col3:
